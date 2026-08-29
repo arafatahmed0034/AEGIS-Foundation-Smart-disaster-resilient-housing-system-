@@ -1,0 +1,1285 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aegis Foundation - Disaster Resilient Housing System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800;900&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    --void:#05080f;
+    --surface:#0c1320;
+    --surface-2:#121c2e;
+    --surface-3:#1a2740;
+    --line:#2e3c54;
+    --line-bright:#3f5377;
+    --ink:#eaf1fc;
+    --ink-dim:#8ea1be;
+    --ink-faint:#556385;
+    --teal:#4ad9c6;
+    --teal-dim:#1d4540;
+    --amber:#f0a840;
+    --red:#f2495c;
+    --green:#38dc93;
+    --water:#3aa6e0;
+    --font-display:'Big Shoulders Display', 'Arial Narrow', sans-serif;
+    --font-body:'IBM Plex Sans', 'Segoe UI', sans-serif;
+    --font-mono:'IBM Plex Mono', 'Consolas', monospace;
+  }
+
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background:var(--void);
+    color:var(--ink);
+    font-family:var(--font-body);
+    height:100vh;
+    overflow:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  #app{
+    position:relative;
+    width:100%;
+    height:100vh;
+    background:
+      radial-gradient(ellipse 1200px 700px at 50% 8%, #0f1c30 0%, transparent 60%),
+      linear-gradient(180deg, #070c16 0%, #05080f 55%, #03050a 100%);
+  }
+
+  header{
+    position:absolute;
+    top:0; left:0; right:0;
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:16px;
+    padding:16px 24px;
+    background:linear-gradient(180deg, rgba(5,8,15,.92) 0%, rgba(5,8,15,.6) 65%, transparent 100%);
+    pointer-events:none;
+    z-index:30;
+  }
+  header .brand, header .hud{ pointer-events:auto; }
+  .brand{ display:flex; flex-direction:column; gap:2px; }
+  .brand .eyebrow{
+    font-family:var(--font-mono);
+    font-size:10px;
+    letter-spacing:.18em;
+    text-transform:uppercase;
+    color:var(--teal);
+    font-weight:600;
+  }
+  .brand h1{
+    margin:0;
+    font-family:var(--font-display);
+    font-weight:800;
+    font-size:clamp(20px,3.2vw,32px);
+    letter-spacing:.02em;
+    line-height:1;
+  }
+  .brand .sub{
+    font-size:11.5px;
+    color:var(--ink-dim);
+    margin-top:2px;
+  }
+
+  .hud{
+    display:flex;
+    gap:0;
+    background:rgba(18,28,46,0.85);
+    backdrop-filter:blur(10px);
+    border:1px solid var(--line);
+    border-radius:10px;
+    overflow-x:auto;
+    max-width:65vw;
+    box-shadow:0 8px 24px rgba(0,0,0,0.4);
+  }
+  .hud-cell{
+    padding:6px 14px;
+    border-right:1px solid var(--line);
+    min-width:80px;
+    flex:0 0 auto;
+  }
+  .hud-cell:last-child{ border-right:none; }
+  .hud-cell .k{
+    font-family:var(--font-mono);
+    font-size:8.5px;
+    letter-spacing:.12em;
+    text-transform:uppercase;
+    color:var(--ink-faint);
+    display:block;
+    white-space:nowrap;
+  }
+  .hud-cell .v{
+    font-family:var(--font-mono);
+    font-size:13px;
+    font-weight:600;
+    color:var(--ink);
+    font-variant-numeric:tabular-nums;
+    display:block;
+    margin-top:2px;
+    white-space:nowrap;
+  }
+  .hud-cell.lock-eng .v{ color:var(--teal); }
+  .hud-cell.lock-rel .v{ color:var(--red); }
+  .hud-cell.mode-normal .v{ color:var(--teal); }
+  .hud-cell.mode-flood .v{ color:var(--water); }
+  .hud-cell.mode-quake .v{ color:var(--red); }
+
+  @media (max-width:1080px){
+    .hud{ display:none; }
+  }
+
+  main{
+    position:absolute;
+    inset:0;
+  }
+
+  #stageWrap{
+    position:relative;
+    width:100%;
+    height:100%;
+    overflow:hidden;
+    cursor:grab;
+    touch-action:none;
+  }
+  #stageWrap.dragging{ cursor:grabbing; }
+  #stageWrap::after{
+    content:'';
+    position:absolute; inset:0;
+    pointer-events:none;
+    background:radial-gradient(ellipse 75% 70% at 50% 45%, transparent 55%, rgba(2,4,8,.55) 100%);
+    z-index:5;
+  }
+
+  #stage{
+    position:absolute;
+    inset:0;
+    perspective:1600px;
+    perspective-origin:50% 40%;
+  }
+
+  #world{
+    position:absolute;
+    left:50%;
+    top:56%;
+    width:0; height:0;
+    transform-style:preserve-3d;
+    will-change:transform;
+  }
+
+  .obj3d{ position:absolute; left:50%; top:50%; transform-style:preserve-3d; }
+  .face{ position:absolute; left:50%; top:50%; backface-visibility:hidden; }
+
+  #groundPlane{
+    background:
+      repeating-linear-gradient(0deg, rgba(74,217,198,.05) 0 1px, transparent 1px 40px),
+      repeating-linear-gradient(90deg, rgba(74,217,198,.05) 0 1px, transparent 1px 40px),
+      radial-gradient(ellipse at center, #101928 0%, #080e18 68%, #03050a 100%);
+    border-radius:50%;
+    box-shadow:0 0 140px 50px rgba(0,0,0,.7) inset;
+  }
+  
+  @keyframes waterFlow {
+    0% { background-position: 0px 0px; }
+    100% { background-position: 52px 52px; }
+  }
+  
+  #waterPlane{
+    background:
+      repeating-linear-gradient(45deg, rgba(255,255,255,.09) 0 2px, transparent 2px 28px),
+      linear-gradient(180deg, rgba(58,166,224,.82), rgba(26,80,125,.9));
+    border-radius:12px;
+    pointer-events:none;
+    box-shadow: 0 0 70px rgba(58,166,224, 0.6);
+    animation: waterFlow 3s linear infinite;
+  }
+
+  #innerWaterPlane{
+    background:
+      repeating-linear-gradient(45deg, rgba(255,255,255,.09) 0 2px, transparent 2px 20px),
+      linear-gradient(180deg, rgba(58,166,224,.85), rgba(30,95,145,.92));
+    pointer-events:none;
+    animation: waterFlow 2s linear infinite;
+  }
+
+  /* Professional Callout Label with Connecting Pointer & Leader Line */
+  .callout-wrapper {
+    position: absolute;
+    transform-style: preserve-3d;
+    pointer-events: none;
+    backface-visibility: hidden;
+    display: flex;
+    align-items: center;
+  }
+
+  /* Leader Line / Arrow pointing to sensor node */
+  .callout-line-left {
+    position: relative;
+    width: 28px;
+    height: 1px;
+    background: var(--teal);
+    box-shadow: 0 0 6px var(--teal);
+    flex-shrink: 0;
+  }
+  .callout-line-left::before {
+    content: '';
+    position: absolute;
+    left: -4px;
+    top: -2.5px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--teal);
+    box-shadow: 0 0 8px var(--teal);
+  }
+
+  .callout-box {
+    background: rgba(8, 14, 24, 0.94);
+    border: 1px solid var(--teal);
+    border-radius: 5px;
+    padding: 3px 8px;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--teal);
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.6), 0 0 10px rgba(74,217,198,0.25);
+    transition: all 0.3s ease;
+  }
+  .callout-box .s-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 6px var(--green);
+  }
+  .callout-wrapper.active-blue .callout-box {
+    border-color: var(--water);
+    color: #e0f3ff;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.6), 0 0 12px rgba(58,166,224,0.5);
+  }
+  .callout-wrapper.active-blue .callout-line-left,
+  .callout-wrapper.active-blue .callout-line-left::before {
+    background: var(--water);
+    box-shadow: 0 0 8px var(--water);
+  }
+  .callout-wrapper.active-blue .s-dot {
+    background: var(--water);
+    box-shadow: 0 0 8px var(--water);
+  }
+
+  .callout-wrapper.danger .callout-box {
+    border-color: var(--red);
+    color: #ffdce0;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.6), 0 0 12px rgba(242,73,92,0.5);
+  }
+  .callout-wrapper.danger .callout-line-left,
+  .callout-wrapper.danger .callout-line-left::before {
+    background: var(--red);
+    box-shadow: 0 0 8px var(--red);
+  }
+  .callout-wrapper.danger .s-dot {
+    background: var(--red);
+    box-shadow: 0 0 8px var(--red);
+  }
+
+  .orbit-hint{
+    position:absolute;
+    left:22px; bottom:18px;
+    font-family:var(--font-mono);
+    font-size:11px;
+    color:var(--ink-faint);
+    letter-spacing:.04em;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    pointer-events:none;
+    z-index:10;
+  }
+  .orbit-hint svg{ width:14px; height:14px; opacity:.7; }
+
+  #dock{
+    position:absolute;
+    left:50%; bottom:20px;
+    transform:translateX(-50%);
+    z-index:25;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    background:rgba(12,19,32,.9);
+    backdrop-filter:blur(12px);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:8px 12px;
+    max-width:calc(100vw - 32px);
+    flex-wrap:wrap;
+    justify-content:center;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  }
+
+  .seg{
+    display:flex;
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:9px;
+    padding:3px;
+    gap:3px;
+  }
+  .seg button{
+    font-family:var(--font-body);
+    font-weight:600;
+    font-size:12px;
+    color:var(--ink-dim);
+    background:transparent;
+    border:none;
+    border-radius:6px;
+    padding:8px 12px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    gap:6px;
+    transition:background .15s ease, color .15s ease;
+    white-space:nowrap;
+  }
+  .seg button svg{ width:13px; height:13px; opacity:.85; }
+  .seg button:hover{ color:var(--ink); }
+  .seg button.active{ background:var(--surface-3); color:var(--ink); box-shadow:inset 0 0 0 1px var(--line-bright); }
+  .seg button[data-mode="normal"].active{ color:var(--teal); }
+  .seg button[data-mode="flood"].active{ color:var(--water); }
+  .seg button[data-mode="earthquake"].active{ color:var(--red); }
+
+  .dock-divider{ width:1px; height:24px; background:var(--line); }
+
+  #quakeBtn{
+    font-family:var(--font-body);
+    font-weight:700;
+    font-size:12px;
+    letter-spacing:.02em;
+    color:#2a0a0e;
+    background:linear-gradient(180deg, #ff6a76, var(--red));
+    border:none;
+    border-radius:8px;
+    padding:9px 14px;
+    cursor:pointer;
+    display:flex; align-items:center; gap:6px;
+    box-shadow:0 0 0 1px rgba(242,73,92,.35), 0 4px 14px -4px rgba(242,73,92,.65);
+    transition:transform .12s ease, box-shadow .12s ease;
+    white-space:nowrap;
+  }
+  #quakeBtn svg{ width:14px; height:14px; }
+  #quakeBtn:hover{ transform:translateY(-1px); box-shadow:0 0 0 1px rgba(242,73,92,.5), 0 6px 18px -4px rgba(242,73,92,.8); }
+
+  #toggleRotBtn, #sensorToggleBtn{
+    font-family:var(--font-body);
+    font-weight:600;
+    font-size:12px;
+    color:var(--ink-dim);
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:8px 12px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    gap:6px;
+    transition:background .15s ease, color .15s ease, border-color .15s ease;
+    white-space:nowrap;
+  }
+  #toggleRotBtn svg, #sensorToggleBtn svg{ width:13px; height:13px; }
+  #toggleRotBtn:hover, #sensorToggleBtn:hover{ color:var(--ink); border-color:var(--line-bright); }
+  #toggleRotBtn.on, #sensorToggleBtn.on{ color:var(--teal); border-color:var(--teal-dim); background:rgba(74,217,198,.08); }
+
+  .icon-btn{
+    width:34px; height:34px;
+    display:flex; align-items:center; justify-content:center;
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:8px;
+    color:var(--ink-dim);
+    cursor:pointer;
+    transition:background .15s ease, color .15s ease;
+    flex:0 0 auto;
+  }
+  .icon-btn svg{ width:15px; height:15px; }
+  .icon-btn:hover{ color:var(--ink); border-color:var(--line-bright); }
+
+  @media (max-width:640px){
+    .seg button span.lbl{ display:none; }
+    .seg button{ padding:8px; }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    * { animation-duration:.001ms !important; animation-iteration-count:1 !important; transition-duration:.001ms !important; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="brand">
+      <span class="eyebrow">Aegis Foundation &middot; IoT Multi-Tier Sensor Array</span>
+      <h1>Multi-Level Hydro-Sensor Automated Elevating House</h1>
+      <span class="sub">Side Callout Labels with Precision Leader Line Indicators</span>
+    </div>
+    <div class="hud" id="hud">
+      <div class="hud-cell mode-normal" id="hudMode"><span class="k">Mode</span><span class="v">Normal</span></div>
+      <div class="hud-cell lock-eng" id="hudLock"><span class="k">Mag Lock</span><span class="v">Engaged</span></div>
+      <div class="hud-cell" id="hudLift"><span class="k">Lift Height</span><span class="v">0.00 m</span></div>
+      <div class="hud-cell" id="hudSensor"><span class="k">Active Level</span><span class="v">Dry (L0)</span></div>
+      <div class="hud-cell" id="hudPump"><span class="k">Hydraulic Pressure</span><span class="v">32 Bar</span></div>
+      <div class="hud-cell" id="hudGround"><span class="k">Base Shake</span><span class="v">0 mm</span></div>
+    </div>
+  </header>
+
+  <main>
+    <div id="stageWrap">
+      <div id="stage">
+        <div id="world"></div>
+      </div>
+      <div class="orbit-hint">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 12a9 9 0 1 0 9-9"/><path d="M3 4v8h8"/></svg>
+        drag to orbit &middot; clear callouts with arrows point to sensors
+      </div>
+    </div>
+
+    <div id="dock">
+      <div class="seg" id="modeSeg">
+        <button data-mode="normal" class="active">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="3" width="14" height="18" rx="1.5"/><path d="M9 21v-4h6v4"/></svg>
+          <span class="lbl">Normal</span>
+        </button>
+        <button data-mode="flood">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 16c1.5 1.3 3 1.3 4.5 0s3-1.3 4.5 0 3 1.3 4.5 0 3-1.3 4.5 0"/><path d="M3 20c1.5 1.3 3 1.3 4.5 0s3-1.3 4.5 0 3 1.3 4.5 0 3-1.3 4.5 0"/><path d="M12 3v9m0 0-3.5-3.5M12 12l3.5-3.5"/></svg>
+          <span class="lbl">Flood Lift (3.0m)</span>
+        </button>
+        <button data-mode="earthquake">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 14l3-4 3 6 3-9 3 7 3-6 3 4h2"/></svg>
+          <span class="lbl">Earthquake</span>
+        </button>
+      </div>
+
+      <div class="dock-divider"></div>
+
+      <button id="quakeBtn">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 3 14h7l-1 8 11-14h-8l1-6z"/></svg>
+        Quake Jolt
+      </button>
+
+      <div class="dock-divider"></div>
+
+      <button id="sensorToggleBtn" class="on" title="Toggle Clean Sensor Labels">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
+        <span id="sensorBtnText">HUD Labels: ON</span>
+      </button>
+
+      <button id="toggleRotBtn" class="on" title="Click to Stop / Start 3D Rotation">
+        <svg id="rotIconPause" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
+        <svg id="rotIconPlay" viewBox="0 0 24 24" fill="currentColor" style="display:none;"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        <span id="rotBtnText">Rotation</span>
+      </button>
+
+      <button class="icon-btn" id="resetBtn" title="Reset view">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3.2-6.9M3 4v5h5"/></svg>
+      </button>
+    </div>
+  </main>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var REDUCED = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  var world = document.getElementById('world');
+
+  function make(tag, cls){
+    var e = document.createElement(tag);
+    if(cls) e.className = cls;
+    return e;
+  }
+  function obj3d(cls){ return make('div', 'obj3d ' + (cls||'')); }
+
+  function place(e, o){
+    o = o || {};
+    var x=o.x||0, y=o.y||0, z=o.z||0, rx=o.rx||0, ry=o.ry||0, rz=o.rz||0, skx=o.skx||0;
+    var sx=o.sx!=null?o.sx:(o.s!=null?o.s:1);
+    var sy=o.sy!=null?o.sy:(o.s!=null?o.s:1);
+    var sz=o.sz!=null?o.sz:(o.s!=null?o.s:1);
+    e.style.transform = 'translate3d('+x.toFixed(2)+'px,'+y.toFixed(2)+'px,'+z.toFixed(2)+'px) rotateX('+rx.toFixed(2)+'deg) rotateY('+ry.toFixed(2)+'deg) rotateZ('+rz.toFixed(2)+'deg) skewX('+skx.toFixed(2)+'deg) scale3d('+sx.toFixed(3)+','+sy.toFixed(3)+','+sz.toFixed(3)+')';
+  }
+
+  function ease(cur, target, halfLifeMs, dt){
+    var k = 1 - Math.pow(0.5, dt/halfLifeMs);
+    return cur + (target-cur)*k;
+  }
+
+  function makeBox(w,h,d,color,opts){
+    opts = opts || {};
+    var box = obj3d('box');
+    var faces = [
+      {w:w,h:h, t:'translateZ('+(d/2)+'px)',                     b:1.0},
+      {w:w,h:h, t:'rotateY(180deg) translateZ('+(d/2)+'px)',     b:0.55},
+      {w:d,h:h, t:'rotateY(90deg) translateZ('+(w/2)+'px)',      b:0.8},
+      {w:d,h:h, t:'rotateY(-90deg) translateZ('+(w/2)+'px)',     b:0.65},
+      {w:w,h:d, t:'rotateX(90deg) translateZ('+(h/2)+'px)',      b:1.25},
+      {w:w,h:d, t:'rotateX(-90deg) translateZ('+(h/2)+'px)',     b:0.35}
+    ];
+    faces.forEach(function(f){
+      var face = make('div','face');
+      face.style.width = f.w+'px';
+      face.style.height = f.h+'px';
+      face.style.marginLeft = (-f.w/2)+'px';
+      face.style.marginTop = (-f.h/2)+'px';
+      face.style.background = color;
+      face.style.filter = 'brightness(' + f.b + ')';
+      face.style.transform = f.t;
+      if(opts.opacity != null){ face.style.opacity = opts.opacity; }
+      if(opts.glow){ face.style.boxShadow = 'inset 0 0 15px ' + color; }
+      box.appendChild(face);
+    });
+    return box;
+  }
+
+  function makeCylinder(radius,height,sides,color,opts){
+    opts = opts || {};
+    var cyl = obj3d('cyl');
+    var faceW = 2*radius*Math.sin(Math.PI/sides);
+    var apo = radius*Math.cos(Math.PI/sides);
+    for(var i=0;i<sides;i++){
+      var angle = i*360/sides;
+      var light = 0.5 + 0.6*Math.max(0, Math.cos((angle-35)*Math.PI/180));
+      var face = make('div','face');
+      face.style.width = faceW.toFixed(2)+'px';
+      face.style.height = height+'px';
+      face.style.marginLeft = (-faceW/2).toFixed(2)+'px';
+      face.style.marginTop = (-height/2)+'px';
+      face.style.background = color;
+      face.style.filter = 'brightness('+light.toFixed(2)+')';
+      face.style.transform = 'rotateY('+angle.toFixed(2)+'deg) translateZ('+apo.toFixed(2)+'px)';
+      cyl.appendChild(face);
+    }
+    var capR = radius/Math.cos(Math.PI/sides);
+    var topCap = make('div','face cap');
+    topCap.style.width = topCap.style.height = (2*capR).toFixed(2)+'px';
+    topCap.style.marginLeft = topCap.style.marginTop = (-capR).toFixed(2)+'px';
+    topCap.style.borderRadius = '50%';
+    topCap.style.background = opts.capColor || color;
+    topCap.style.filter = 'brightness(1.35)';
+    topCap.style.transform = 'rotateX(90deg) translateZ('+(height/2)+'px)';
+    cyl.appendChild(topCap);
+    var botCap = topCap.cloneNode();
+    botCap.style.filter = 'brightness(0.38)';
+    botCap.style.transform = 'rotateX(-90deg) translateZ('+(height/2)+'px)';
+    cyl.appendChild(botCap);
+    cyl.dataset.h = height;
+    return cyl;
+  }
+
+  // Helper to create a side callout label with pointer line/arrow pointing to component
+  function createCallout(label, textClass) {
+    var wrapper = make('div', 'callout-wrapper ' + (textClass||''));
+    var pointer = make('div', 'callout-line-left');
+    var box = make('div', 'callout-box');
+    box.innerHTML = '<span class="s-dot"></span><span class="c-txt">' + label + '</span>';
+    wrapper.appendChild(pointer);
+    wrapper.appendChild(box);
+    return {el: wrapper, box: box, pointer: pointer};
+  }
+
+  var GLASS = 'repeating-linear-gradient(90deg, rgba(255,255,255,.07) 0 2px, transparent 2px 24px), repeating-linear-gradient(0deg, rgba(0,0,0,.2) 0 2px, transparent 2px 20px), linear-gradient(155deg, #3c5176, #26374f)';
+  var REALISTIC_LRB_TEXTURE = 'repeating-linear-gradient(0deg, #161a22 0px, #161a22 4px, #424e66 4px, #424e66 5.5px)';
+  var CONCRETE_TRANSLUCENT = 'linear-gradient(135deg, rgba(115,130,150,0.45) 0%, rgba(85,100,120,0.38) 50%, rgba(60,75,95,0.48) 100%)';
+  var CONCRETE_CAP = 'rgba(135,150,170,0.6)';
+  var HEAVY_CAST_STEEL = 'linear-gradient(180deg, #536073 0%, #3a4556 50%, #252e3b 100%)';
+  var HYDRAULIC_BODY = 'linear-gradient(90deg, #1c232e 0%, #3b4657 40%, #586982 60%, #1e2633 100%)';
+  var CHROME_ROD = 'linear-gradient(90deg, #8a9bb0 0%, #ffffff 50%, #76869a 100%)';
+  var FLANGE_GOLD = '#c29a4a';
+
+  var MAT = {
+    ground:   '#0a111e',
+    foundation:'#364152',
+    baseSlab: '#27344d',
+    bearing_rubber: REALISTIC_LRB_TEXTURE, 
+    plate:    '#7f8ba1',
+    platform: '#2e3d5f',
+    floor1:   '#c8bc9f',
+    floor2:   '#e7e3d8',
+    floor3:   '#ba8c58',
+    glass:    GLASS,
+    trim:     '#121927',
+    control:  '#0e241c',
+    water:    '#3aa6e0',
+    concreteSlope: CONCRETE_TRANSLUCENT,
+    concreteCap: CONCRETE_CAP
+  };
+
+  /* ============ STATIC GROUND & WATER ============ */
+  var ground = obj3d('');
+  ground.id = 'groundPlane';
+  ground.style.width = '840px'; ground.style.height='840px';
+  ground.style.marginLeft='-420px'; ground.style.marginTop='-420px';
+  place(ground,{y:40, rx:90});
+  world.appendChild(ground);
+
+  var contactShadow = obj3d('');
+  contactShadow.style.width='520px'; contactShadow.style.height='520px';
+  contactShadow.style.marginLeft='-260px'; contactShadow.style.marginTop='-260px';
+  contactShadow.style.borderRadius='50%';
+  contactShadow.style.background='radial-gradient(ellipse at center, rgba(0,0,0,.7) 0%, rgba(0,0,0,.35) 50%, transparent 72%)';
+  contactShadow.style.filter='blur(6px)';
+  place(contactShadow,{y:39, rx:90});
+  world.appendChild(contactShadow);
+
+  var water = obj3d('');
+  water.id = 'waterPlane';
+  water.style.width='1300px'; water.style.height='1300px';
+  water.style.marginLeft='-650px'; water.style.marginTop='-650px';
+  water.style.opacity = 0;
+  place(water,{y:150, rx:90});
+  world.appendChild(water);
+
+  var innerWater = obj3d('');
+  innerWater.id = 'innerWaterPlane';
+  innerWater.style.width='440px'; innerWater.style.height='440px';
+  innerWater.style.marginLeft='-220px'; innerWater.style.marginTop='-220px';
+  innerWater.style.opacity = 0;
+  place(innerWater, {y: 150, rx: 90});
+  world.appendChild(innerWater);
+
+  /* ============ FOUNDATION & CONCRETE DEFLECTOR BOUNDARY ============ */
+  var foundation = obj3d('foundation-master');
+  world.appendChild(foundation);
+
+  var coreBase = makeBox(330, 40, 330, MAT.foundation);
+  place(coreBase, {y: 20});
+  foundation.appendChild(coreBase);
+
+  var groundApron = makeBox(540, 10, 540, '#283241');
+  place(groundApron, {y: 35});
+  foundation.appendChild(groundApron);
+
+  var boundaryGroup = obj3d('boundary-enclosure');
+  foundation.appendChild(boundaryGroup);
+
+  var WALL_H = 105; 
+  var WALL_Y = -6;  
+  var WALL_DIST = 225;
+
+  var wallBack = makeBox(460, WALL_H, 18, MAT.concreteSlope, {opacity: 0.42});
+  place(wallBack, {x: 0, y: WALL_Y, z: -WALL_DIST, rx: -22});
+  boundaryGroup.appendChild(wallBack);
+  var wallBackCap = makeBox(460, 8, 16, MAT.concreteCap, {opacity: 0.65});
+  place(wallBackCap, {x: 0, y: -52, z: -WALL_DIST - 16});
+  boundaryGroup.appendChild(wallBackCap);
+
+  var wallLeft = makeBox(18, WALL_H, 460, MAT.concreteSlope, {opacity: 0.42});
+  place(wallLeft, {x: -WALL_DIST, y: WALL_Y, z: 0, rz: 22});
+  boundaryGroup.appendChild(wallLeft);
+  var wallLeftCap = makeBox(16, 8, 460, MAT.concreteCap, {opacity: 0.65});
+  place(wallLeftCap, {x: -WALL_DIST - 16, y: -52, z: 0});
+  boundaryGroup.appendChild(wallLeftCap);
+
+  var wallRight = makeBox(18, WALL_H, 460, MAT.concreteSlope, {opacity: 0.42});
+  place(wallRight, {x: WALL_DIST, y: WALL_Y, z: 0, rz: -22});
+  boundaryGroup.appendChild(wallRight);
+  var wallRightCap = makeBox(16, 8, 460, MAT.concreteCap, {opacity: 0.65});
+  place(wallRightCap, {x: WALL_DIST + 16, y: -52, z: 0});
+  boundaryGroup.appendChild(wallRightCap);
+
+  var wallFrontL = makeBox(155, WALL_H, 18, MAT.concreteSlope, {opacity: 0.42});
+  place(wallFrontL, {x: -152, y: WALL_Y, z: WALL_DIST, rx: 22});
+  boundaryGroup.appendChild(wallFrontL);
+  var wallFrontLCap = makeBox(155, 8, 16, MAT.concreteCap, {opacity: 0.65});
+  place(wallFrontLCap, {x: -152, y: -52, z: WALL_DIST + 16});
+  boundaryGroup.appendChild(wallFrontLCap);
+
+  var wallFrontR = makeBox(155, WALL_H, 18, MAT.concreteSlope, {opacity: 0.42});
+  place(wallFrontR, {x: 152, y: WALL_Y, z: WALL_DIST, rx: 22});
+  boundaryGroup.appendChild(wallFrontR);
+  var wallFrontRCap = makeBox(155, 8, 16, MAT.concreteCap, {opacity: 0.65});
+  place(wallFrontRCap, {x: 152, y: -52, z: WALL_DIST + 16});
+  boundaryGroup.appendChild(wallFrontRCap);
+
+  var gatePillarL = makeBox(18, 90, 24, '#354152', {opacity: 0.65});
+  place(gatePillarL, {x: -75, y: -10, z: WALL_DIST});
+  boundaryGroup.appendChild(gatePillarL);
+
+  var gatePillarR = makeBox(18, 90, 24, '#354152', {opacity: 0.65});
+  place(gatePillarR, {x: 75, y: -10, z: WALL_DIST});
+  boundaryGroup.appendChild(gatePillarR);
+
+  var gateEntryFloor = makeBox(140, 6, 90, '#212936');
+  place(gateEntryFloor, {x: 0, y: 32, z: 235});
+  boundaryGroup.appendChild(gateEntryFloor);
+
+  function createButtressRib(x, z, ry) {
+    var rib = makeBox(10, 108, 38, 'rgba(80,95,118,0.45)', {opacity: 0.45});
+    place(rib, {x: x, y: -4, z: z, ry: ry, rx: 24});
+    boundaryGroup.appendChild(rib);
+  }
+
+  var buttressOffsets = [-150, -90, -30, 30, 90, 150];
+  buttressOffsets.forEach(function(pos){
+    createButtressRib(pos, -WALL_DIST - 8, 180);
+    createButtressRib(-WALL_DIST - 8, pos, -90);
+    createButtressRib(WALL_DIST + 8, pos, 90);
+  });
+  [-170, -115, 115, 170].forEach(function(pos){
+    createButtressRib(pos, WALL_DIST + 8, 0);
+  });
+
+  /* ============ HYDRAULIC POWER UNIT ============ */
+  var hpuGroup = obj3d('hpu-unit');
+  place(hpuGroup, {x: 118, y: -14, z: 65});
+  coreBase.appendChild(hpuGroup);
+
+  var oilTank = makeBox(42, 24, 30, '#1c2430'); hpuGroup.appendChild(oilTank);
+  var elecMotor = makeCylinder(8, 22, 14, '#2d3a4d'); place(elecMotor, {x: -12, y: -8, z: 0, rx: 90}); hpuGroup.appendChild(elecMotor);
+  var accumulator = makeCylinder(6, 26, 12, '#3b4b63'); place(accumulator, {x: 14, y: -10, z: -6}); hpuGroup.appendChild(accumulator);
+  var manifold = makeBox(14, 10, 14, '#6b7a94'); place(manifold, {x: 0, y: -14, z: 8}); hpuGroup.appendChild(manifold);
+
+  var lowerLiftBed = makeBox(280, 14, 250, HEAVY_CAST_STEEL);
+  place(lowerLiftBed, {x: 0, y: -8, z: 0});
+  coreBase.appendChild(lowerLiftBed);
+
+  /* ============ MULTI-TIER WATER LEVEL SENSORS WITH SIDE CALLOUT LABELS & ARROWS ============ */
+  var sensorMast = makeBox(12, 180, 12, '#151d2a');
+  place(sensorMast, {x: -125, y: -65, z: 95});
+  coreBase.appendChild(sensorMast);
+
+  var waterSensorNodes = [
+    {id:1, label:'SENSOR S1 (0.75m)', heightTrigger:0.75, yPos: 15,  waterTargetY: 20,  led:null, callout:null},
+    {id:2, label:'SENSOR S2 (1.50m)', heightTrigger:1.50, yPos: -30, waterTargetY: -25, led:null, callout:null},
+    {id:3, label:'SENSOR S3 (2.25m)', heightTrigger:2.25, yPos: -75, waterTargetY: -70, led:null, callout:null},
+    {id:4, label:'SENSOR S4 (3.00m)', heightTrigger:3.00, yPos: -120, waterTargetY: -115, led:null, callout:null}
+  ];
+
+  waterSensorNodes.forEach(function(node){
+    // Sensor Physical Probe Housing
+    var sHousing = makeBox(18, 10, 16, '#0f1724');
+    place(sHousing, {x: -125, y: node.yPos, z: 95});
+    coreBase.appendChild(sHousing);
+
+    var probe = makeCylinder(3, 14, 8, '#71829e');
+    place(probe, {x: -115, y: node.yPos, z: 95, rx: 90});
+    coreBase.appendChild(probe);
+
+    var led = make('div', 'obj3d');
+    led.style.width = '7px'; led.style.height = '7px';
+    led.style.marginLeft = '-3.5px'; led.style.marginTop = '-3.5px';
+    led.style.borderRadius = '50%';
+    led.style.background = '#f2495c';
+    led.style.boxShadow = '0 0 6px #f2495c';
+    led.style.transition = 'all 0.25s ease';
+    place(led, {x: -112, y: node.yPos, z: 95});
+    coreBase.appendChild(led);
+    node.led = led;
+
+    // Side Label with Pointer Arrow pointing directly into probe LED
+    var c = createCallout(node.label + ' [STANDBY]');
+    place(c.el, {x: -108, y: node.yPos, z: 95});
+    coreBase.appendChild(c.el);
+    node.callout = c;
+  });
+
+  // ESP32 Microcontroller Gateway Callout with Arrow
+  var esp32Box = makeBox(24, 14, 18, '#0d1826');
+  place(esp32Box, {x: 125, y: -22, z: -100});
+  coreBase.appendChild(esp32Box);
+  
+  var espCallout = createCallout('ESP32 MULTI-SENSOR CONTROLLER');
+  place(espCallout.el, {x: 138, y: -22, z: -100});
+  coreBase.appendChild(espCallout.el);
+
+  // MPU6050 Seismic Sensor Callout with Arrow
+  var mpuGroup = obj3d('mpu-group');
+  place(mpuGroup, {x: -120, y: -12, z: -110});
+  coreBase.appendChild(mpuGroup);
+  var mpuPcb = makeBox(22, 4, 16, '#1a4e82'); place(mpuPcb, {y: 0}); mpuGroup.appendChild(mpuPcb);
+  var mpuChip = makeBox(9, 3, 9, '#07090e'); place(mpuChip, {y: -3}); mpuGroup.appendChild(mpuChip);
+
+  var mpuLed = make('div', 'obj3d');
+  mpuLed.style.width = '5px'; mpuLed.style.height = '5px';
+  mpuLed.style.marginLeft = '-2.5px'; mpuLed.style.marginTop = '-2.5px';
+  mpuLed.style.borderRadius = '50%';
+  mpuLed.style.background = '#38dc93'; 
+  mpuLed.style.boxShadow = '0 0 8px #38dc93';
+  place(mpuLed, {x: 7, y: -4, z: 0, rx: 90});
+  mpuGroup.appendChild(mpuLed);
+
+  var mpuCallout = createCallout('MPU6050 SEISMIC SENSOR');
+  place(mpuCallout.el, {x: -108, y: -12, z: -110});
+  coreBase.appendChild(mpuCallout.el);
+
+  /* ============ SCISSOR ARMS & HYDRAULIC ACTUATORS ============ */
+  var SCISSOR_L = 270;
+  var SCISSOR_TIERS = 2;
+  var scissorArms = [];
+  var hydraulicActuators = [];
+
+  var armSides = [-86, 86];
+  for(var s=0; s<armSides.length; s++){
+    var sz = armSides[s];
+    for(var t=0; t<SCISSOR_TIERS; t++){
+      var armA = makeBox(SCISSOR_L, 16, 12, HEAVY_CAST_STEEL);
+      world.appendChild(armA);
+      scissorArms.push({el: armA, tier: t, x: 0, z: sz - 8, dir: 1});
+
+      var pivotPin = makeCylinder(10, 22, 14, '#1b232e');
+      place(pivotPin, {x: 0, y: 0, z: 0, rx: 90});
+      armA.appendChild(pivotPin);
+
+      var pivotCap = makeCylinder(13, 2, 14, FLANGE_GOLD);
+      place(pivotCap, {x: 0, y: 0, z: 12, rx: 90});
+      armA.appendChild(pivotCap);
+
+      var armB = makeBox(SCISSOR_L, 16, 12, HEAVY_CAST_STEEL);
+      world.appendChild(armB);
+      scissorArms.push({el: armB, tier: t, x: 0, z: sz + 8, dir: -1});
+
+      var pivotCapB = makeCylinder(13, 2, 14, FLANGE_GOLD);
+      place(pivotCapB, {x: 0, y: 0, z: -12, rx: 90});
+      armB.appendChild(pivotCapB);
+    }
+
+    var cylLeft = makeCylinder(8.5, 95, 16, HYDRAULIC_BODY);
+    var capL = makeCylinder(10.5, 6, 16, FLANGE_GOLD); place(capL, {y: 44}); cylLeft.appendChild(capL);
+    var pistonLeft = makeCylinder(5.5, 88, 14, CHROME_ROD); place(pistonLeft, {y: -42}); cylLeft.appendChild(pistonLeft);
+    world.appendChild(cylLeft);
+    hydraulicActuators.push({cyl: cylLeft, piston: pistonLeft, x: -65, z: sz, dir: 1});
+
+    var cylRight = makeCylinder(8.5, 95, 16, HYDRAULIC_BODY);
+    var capR = makeCylinder(10.5, 6, 16, FLANGE_GOLD); place(capR, {y: 44}); cylRight.appendChild(capR);
+    var pistonRight = makeCylinder(5.5, 88, 14, CHROME_ROD); place(pistonRight, {y: -42}); cylRight.appendChild(pistonRight);
+    world.appendChild(cylRight);
+    hydraulicActuators.push({cyl: cylRight, piston: pistonRight, x: 65, z: sz, dir: -1});
+  }
+
+  var RISER_BASE_Y = 0; 
+
+  /* ============ RISER & SUPERSTRUCTURE ============ */
+  var riser = obj3d('riser-assembly');
+  world.appendChild(riser);
+
+  var upperLiftBed = makeBox(280, 14, 250, HEAVY_CAST_STEEL);
+  place(upperLiftBed, {y: 7});
+  riser.appendChild(upperLiftBed);
+
+  var BASE_H = 16;
+  var baseSlab = makeBox(300, BASE_H, 260, MAT.baseSlab);
+  place(baseSlab,{y: -BASE_H/2});
+  riser.appendChild(baseSlab);
+
+  var bearingGroup = obj3d('bearing-group locked'); 
+  place(bearingGroup,{y:0});
+  riser.appendChild(bearingGroup);
+
+  var BR_N = 8, BR_R = 96, BR_H = 20, BR_RAD = 22; 
+  var bearings = [];
+  
+  for(var j=0;j<BR_N;j++){
+    var bang = j*(360/BR_N);
+    var brad = bang*Math.PI/180;
+    var bx = BR_R*Math.sin(brad), bz = BR_R*Math.cos(brad);
+    
+    var plateBot = makeBox(48, 4, 48, MAT.plate);
+    bearingGroup.appendChild(plateBot);
+
+    var magLock = makeBox(50, 8, 50, '#4ad9c6');
+    magLock.className = 'obj3d mag-lock';
+    bearingGroup.appendChild(magLock);
+    
+    var bearing = makeCylinder(BR_RAD, BR_H, 18, MAT.bearing_rubber, {capColor:'#252b38'});
+    bearingGroup.appendChild(bearing);
+
+    var plateTop = makeBox(48, 4, 48, MAT.plate);
+    bearingGroup.appendChild(plateTop);
+
+    bearings.push({bearing:bearing, magLock:magLock, plateBot:plateBot, plateTop:plateTop, x:bx, z:bz});
+  }
+
+  var PLAT_H = 14;
+  var platform = makeBox(280,PLAT_H,240, MAT.platform);
+  riser.appendChild(platform);
+
+  var occlusionRing = obj3d('');
+  occlusionRing.style.width='300px'; occlusionRing.style.height='300px';
+  occlusionRing.style.marginLeft='-150px'; occlusionRing.style.marginTop='-150px';
+  occlusionRing.style.borderRadius='50%';
+  occlusionRing.style.background='radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,.32) 85%, transparent 100%)';
+  riser.appendChild(occlusionRing);
+
+  var controlBox = makeBox(22,15,18, MAT.control);
+  riser.appendChild(controlBox);
+
+  var buildingShaker = obj3d('');
+  riser.appendChild(buildingShaker);
+
+  function floorWithGlass(w,h,d,color,glassColor,centerY){
+    var f = makeBox(w,h,d,color);
+    place(f,{y:centerY});
+    buildingShaker.appendChild(f);
+    var glass = makeBox(w-24, h*0.55, 3, glassColor);
+    place(glass,{y:centerY, z:d/2+2});
+    buildingShaker.appendChild(glass);
+    return f;
+  }
+
+  var f1H=85, f2H=95, f3H=90, roofH=8;
+  var f1Y = -f1H/2;
+  var f2Y = -f1H - f2H/2;
+  var f3Y = -f1H - f2H - f3H/2;
+  var roofY = -f1H - f2H - f3H - roofH/2;
+
+  floorWithGlass(258,f1H,208, MAT.floor1, MAT.glass, f1Y);
+
+  var door = makeBox(46,54,4,'#0b101a');
+  place(door,{x:0, y:-27, z:106});
+  buildingShaker.appendChild(door);
+
+  floorWithGlass(280,f2H,232, MAT.floor2, MAT.glass, f2Y);
+
+  var railBase = makeBox(292,16,3,'#353e50');
+  place(railBase,{y:-f1H-8, z:116});
+  buildingShaker.appendChild(railBase);
+  var railCap = makeBox(296,3,6, MAT.trim);
+  place(railCap,{y:-f1H-17, z:115});
+  buildingShaker.appendChild(railCap);
+
+  var PIL_CORNERS = [[-126,-102],[126,-102],[-126,102],[126,102]];
+  PIL_CORNERS.forEach(function(c){
+    var pil = makeBox(14, f2H, 14, MAT.trim);
+    place(pil,{x:c[0], y:f2Y, z:c[1]});
+    buildingShaker.appendChild(pil);
+  });
+
+  floorWithGlass(226,f3H,190, MAT.floor3, MAT.glass, f3Y);
+
+  var roof = makeBox(246,roofH,206, MAT.trim);
+  place(roof,{y:roofY});
+  buildingShaker.appendChild(roof);
+
+  var roofDeck = makeBox(198,5,168,'#182036');
+  place(roofDeck,{y:roofY-roofH/2-2.5});
+  buildingShaker.appendChild(roofDeck);
+
+  /* ============ ORBIT & ROTATION CONTROLS ============ */
+  var stageWrap = document.getElementById('stageWrap');
+  var rotX = 56, rotY = -34, zoom = 0.95, zoomTarget = 0.95;
+  var rotYVel = 0;
+  var dragging = false, lastPX=0, lastPY=0;
+  var autoRotate = true;
+  var autoSpeed = 0.12;
+
+  function clamp(v,a,b){ return Math.max(a, Math.min(b,v)); }
+
+  stageWrap.addEventListener('pointerdown', function(e){
+    dragging = true;
+    rotYVel = 0;
+    stageWrap.classList.add('dragging');
+    lastPX = e.clientX; lastPY = e.clientY;
+    stageWrap.setPointerCapture(e.pointerId);
+  });
+  stageWrap.addEventListener('pointermove', function(e){
+    if(!dragging) return;
+    var dx = e.clientX - lastPX, dy = e.clientY - lastPY;
+    lastPX = e.clientX; lastPY = e.clientY;
+    rotY += dx*0.28;
+    rotX = clamp(rotX - dy*0.28, -15, 89);
+    rotYVel = dx*0.28;
+  });
+  function endDrag(){
+    dragging = false;
+    stageWrap.classList.remove('dragging');
+  }
+  stageWrap.addEventListener('pointerup', endDrag);
+  stageWrap.addEventListener('pointercancel', endDrag);
+  stageWrap.addEventListener('pointerleave', function(){ if(dragging) endDrag(); });
+
+  stageWrap.addEventListener('wheel', function(e){
+    e.preventDefault();
+    zoomTarget = clamp(zoomTarget - e.deltaY*0.0009, 0.42, 2.3);
+  }, {passive:false});
+
+  var toggleRotBtn = document.getElementById('toggleRotBtn');
+  var rotIconPause = document.getElementById('rotIconPause');
+  var rotIconPlay = document.getElementById('rotIconPlay');
+  var rotBtnText = document.getElementById('rotBtnText');
+
+  function updateRotButtonUI(){
+    if(autoRotate){
+      toggleRotBtn.classList.add('on');
+      rotIconPause.style.display = 'block';
+      rotIconPlay.style.display = 'none';
+      rotBtnText.textContent = 'Stop Rotation';
+    } else {
+      toggleRotBtn.classList.remove('on');
+      rotIconPause.style.display = 'none';
+      rotIconPlay.style.display = 'block';
+      rotBtnText.textContent = 'Play Rotation';
+    }
+  }
+
+  toggleRotBtn.addEventListener('click', function(){
+    autoRotate = !autoRotate;
+    if(autoRotate) rotYVel = 0;
+    updateRotButtonUI();
+  });
+
+  var showSensors = true;
+  var sensorToggleBtn = document.getElementById('sensorToggleBtn');
+  var sensorBtnText = document.getElementById('sensorBtnText');
+  sensorToggleBtn.addEventListener('click', function(){
+    showSensors = !showSensors;
+    sensorToggleBtn.classList.toggle('on', showSensors);
+    sensorBtnText.textContent = showSensors ? 'HUD Labels: ON' : 'HUD Labels: OFF';
+    var callouts = document.querySelectorAll('.callout-wrapper');
+    callouts.forEach(function(b){ b.style.display = showSensors ? 'flex' : 'none'; });
+  });
+
+  document.getElementById('resetBtn').addEventListener('click', function(){
+    rotX = 56; rotY = -34; zoomTarget = 0.95; rotYVel = 0;
+  });
+
+  /* ============ SENSOR-TRIGGERED SIMULATION DYNAMICS ============ */
+  var mode = 'normal';
+  var isFlood = false;
+  var lift = 0;
+  var LIFT_MAX = 200;
+  var shakeTarget = 0, shakeEnv = 0;
+  var waterYTarget = 150, waterY = 150; 
+  var waterOpTarget = 0, waterOp = 0;
+  
+  var unlockAmt = 0; 
+  var mpuTriggered = false; 
+  
+  var gSpring = {x:0, v:0};
+  var SPRING_K = 14, SPRING_D = 3.5; 
+  var lastT = null;
+  var amp = REDUCED ? 0.35 : 1.4;
+
+  var hudMode = document.getElementById('hudMode');
+  var hudLock = document.getElementById('hudLock');
+  var hudLift = document.getElementById('hudLift');
+  var hudSensor = document.getElementById('hudSensor');
+  var hudPump = document.getElementById('hudPump');
+  var hudGround = document.getElementById('hudGround');
+  var modeSeg = document.getElementById('modeSeg');
+
+  function setMode(m){
+    mode = m;
+    isFlood = (m === 'flood');
+    Array.prototype.forEach.call(modeSeg.querySelectorAll('button'), function(b){
+      b.classList.toggle('active', b.dataset.mode === m);
+    });
+    hudMode.className = 'hud-cell mode-' + (m==='earthquake'?'quake':m);
+    hudMode.querySelector('.v').textContent = m==='normal' ? 'Normal' : (m==='flood' ? 'Flood' : 'Earthquake');
+
+    if(m==='normal'){
+      shakeTarget = 0;
+      waterYTarget = 150; waterOpTarget = 0;
+      hudLock.className='hud-cell lock-eng'; hudLock.querySelector('.v').textContent='Locked';
+      bearingGroup.className = 'obj3d bearing-group locked'; 
+      espCallout.el.className = 'callout-wrapper';
+      espCallout.box.querySelector('.c-txt').textContent = 'ESP32: BASE SECURE (NORMAL)';
+    } else if(m==='flood'){
+      shakeTarget = 0;
+      waterYTarget = -125; waterOpTarget = 0.95; 
+      hudLock.className='hud-cell lock-eng'; hudLock.querySelector('.v').textContent='Locked';
+      bearingGroup.className = 'obj3d bearing-group locked'; 
+      espCallout.el.className = 'callout-wrapper active-blue';
+      espCallout.box.querySelector('.c-txt').textContent = 'ESP32: WATER RISE DETECTED';
+    } else {
+      shakeTarget = 1;
+      waterYTarget = 150; waterOpTarget = 0;
+      hudLock.className='hud-cell lock-rel'; hudLock.querySelector('.v').textContent='Released';
+      bearingGroup.className = 'obj3d bearing-group unlocked'; 
+      espCallout.el.className = 'callout-wrapper danger';
+      espCallout.box.querySelector('.c-txt').textContent = 'ESP32: SEISMIC MODE ACTIVE';
+    }
+  }
+  setMode('normal');
+
+  Array.prototype.forEach.call(modeSeg.querySelectorAll('button'), function(b){
+    b.addEventListener('click', function(){ setMode(b.dataset.mode); });
+  });
+
+  document.getElementById('quakeBtn').addEventListener('click', function(){
+    if(mode !== 'earthquake') setMode('earthquake');
+    gSpring.v += (Math.random() > 0.5 ? 1 : -1) * 200 * amp; 
+  });
+
+  /* ============ MAIN RENDERING LOOP ============ */
+  function tick(t){
+    var dt = lastT===null ? 16.7 : Math.min(t-lastT, 48);
+    lastT = t;
+    var dtS = dt/1000;
+    var dtSteps = dt/16.7;
+
+    if(dragging){
+      /* manual orbit */
+    } else if(autoRotate){
+      rotY += autoSpeed*dtSteps;
+    } else if(rotYVel !== 0){
+      rotY += rotYVel*dtSteps;
+      rotYVel *= Math.pow(0.9, dtSteps);
+      if(Math.abs(rotYVel) < 0.002) rotYVel = 0;
+    }
+
+    zoom = ease(zoom, zoomTarget, 120, dt);
+    world.style.transform = 'rotateX('+rotX.toFixed(2)+'deg) rotateY('+rotY.toFixed(2)+'deg) scale('+zoom.toFixed(3)+')';
+
+    /* -------- Water Level & Step-Wise Sensor Triggering -------- */
+    waterY = ease(waterY, waterYTarget, 3000, dt);
+    waterOp = ease(waterOp, waterOpTarget, 1200, dt);
+
+    var targetLift = 0;
+    var activeSensorName = 'Dry (L0)';
+
+    if (isFlood) {
+      for (var i = 0; i < waterSensorNodes.length; i++) {
+        var s = waterSensorNodes[i];
+        if (waterY <= s.waterTargetY) {
+          s.led.style.background = '#3aa6e0';
+          s.led.style.boxShadow = '0 0 12px #3aa6e0';
+          s.callout.el.className = 'callout-wrapper active-blue';
+          s.callout.box.querySelector('.c-txt').textContent = s.label + ' [ACTIVE]';
+          
+          targetLift = (s.heightTrigger / 3.00) * LIFT_MAX;
+          activeSensorName = s.label.replace('SENSOR ', '');
+        } else {
+          s.led.style.background = '#f2495c';
+          s.led.style.boxShadow = '0 0 6px #f2495c';
+          s.callout.el.className = 'callout-wrapper';
+          s.callout.box.querySelector('.c-txt').textContent = s.label + ' [STANDBY]';
+        }
+      }
+      lift = ease(lift, targetLift, 450, dt);
+    } else {
+      waterSensorNodes.forEach(function(s){
+        s.led.style.background = '#f2495c';
+        s.led.style.boxShadow = '0 0 6px #f2495c';
+        s.callout.el.className = 'callout-wrapper';
+        s.callout.box.querySelector('.c-txt').textContent = s.label + ' [STANDBY]';
+      });
+      lift = ease(lift, 0, 700, dt);
+    }
+    
+    var min_lift = 14; 
+    var current_scissor_h = lift + min_lift;
+    var h_tier = current_scissor_h / SCISSOR_TIERS;
+    var theta = Math.asin(Math.min(0.95, h_tier / SCISSOR_L)); 
+    var thetaDeg = theta * 180 / Math.PI;
+
+    RISER_BASE_Y = -current_scissor_h;
+    place(riser, {y: RISER_BASE_Y, x: 0});
+
+    for(var a=0; a<hydraulicActuators.length; a++){
+      var act = hydraulicActuators[a];
+      var actAngle = (thetaDeg * 1.45) * act.dir;
+      var actY = -(current_scissor_h * 0.45);
+      place(act.cyl, {x: act.x, y: actY, z: act.z, rz: actAngle});
+      place(act.piston, {y: -30 - (lift * 0.22)});
+    }
+
+    var liftMeters = (lift/LIFT_MAX * 3.00).toFixed(2);
+
+    /* -------- Seismic Dynamics -------- */
+    shakeEnv = ease(shakeEnv, shakeTarget, 300, dt);
+    var ambientTarget = shakeEnv * amp * (Math.sin(t*0.0006)*18 + Math.sin(t*0.0014)*10 + Math.sin(t*0.0003)*8);
+    var accel = (ambientTarget - gSpring.x)*SPRING_K - gSpring.v*SPRING_D;
+    gSpring.v += accel*dtS;
+    gSpring.x += gSpring.v*dtS;
+    
+    var rawShake = gSpring.x;
+    var logicalShake = (mode === 'earthquake') ? Math.max(-40, Math.min(40, rawShake)) : 0; 
+
+    if (Math.abs(logicalShake) > 1.5 && mode === 'earthquake') {
+        mpuTriggered = true;
+    } else if (mode !== 'earthquake') {
+        mpuTriggered = false;
+    }
+
+    var visualShake = logicalShake * 0.45;
+
+    place(ground, {x: visualShake, y: 40, rx: 90});
+    place(contactShadow, {x: visualShake, y: 39, rx: 90, s: 1-(lift/LIFT_MAX)*0.22});
+    place(foundation, {x: visualShake, y: 0});
+    place(water, {x: visualShake, y: waterY, rx: 90});
+    water.style.opacity = waterOp;
+
+    place(innerWater, {x: visualShake, y: waterY + 4, rx: 90});
+    innerWater.style.opacity = waterOp;
+
+    for(var i=0; i<scissorArms.length; i++){
+      var arm = scissorArms[i];
+      var centerY = -(arm.tier * h_tier) - (h_tier / 2);
+      place(arm.el, {x: arm.x + visualShake, y: centerY, z: arm.z, rz: thetaDeg * arm.dir});
+    }
+
+    place(baseSlab, {x: visualShake, y: -BASE_H/2});
+
+    if (mpuTriggered) {
+        mpuLed.style.background = '#f2495c';
+        mpuLed.style.boxShadow = '0 0 10px #f2495c';
+        mpuCallout.el.className = 'callout-wrapper danger';
+        mpuCallout.box.querySelector('.c-txt').textContent = 'MPU6050: QUAKE DETECTED';
+    } else {
+        mpuLed.style.background = '#38dc93';
+        mpuLed.style.boxShadow = '0 0 8px #38dc93';
+        if(mode !== 'earthquake') {
+          mpuCallout.el.className = 'callout-wrapper';
+          mpuCallout.box.querySelector('.c-txt').textContent = 'MPU6050 SEISMIC SENSOR';
+        }
+    }
+
+    /* -------- LRB Isolation Response -------- */
+    unlockAmt = ease(unlockAmt, (mpuTriggered ? 1 : 0), 400, dt);
+    var skewDeg = (unlockAmt > 0.01) ? -Math.atan2(visualShake, BR_H) * (180 / Math.PI) : 0;
+
+    for(var j=0;j<bearings.length;j++){
+      var br = bearings[j];
+      var p_y_bot = -BASE_H - 4/2;
+      var m_y = -BASE_H - 4 - 8/2;
+      place(br.plateBot, {x: br.x + visualShake, y: p_y_bot, z: br.z});
+      place(br.magLock, {x: br.x + visualShake, y: m_y, z: br.z});
+      
+      var b_y = -BASE_H - 12 - (BR_H * unlockAmt)/2;
+      place(br.bearing, {x: br.x + visualShake/2, y: b_y, z: br.z, skx: skewDeg, sy: Math.max(0.001, unlockAmt)});
+      br.bearing.style.opacity = unlockAmt > 0.01 ? 1 : 0; 
+      
+      var p_y_top = -BASE_H - 12 - (BR_H * unlockAmt) - 4/2;
+      place(br.plateTop, {x: br.x, y: p_y_top, z: br.z}); 
+      br.plateTop.style.opacity = unlockAmt > 0.01 ? 1 : 0; 
+    }
+
+    var platformBottom = -BASE_H - 12 - (BR_H * unlockAmt) - 4;
+    place(platform, {x: 0, y: platformBottom - PLAT_H/2});
+    
+    var platformTopY = platformBottom - PLAT_H;
+    place(occlusionRing, {y: platformTopY + 2, rx: 90});
+    place(controlBox, {x: 112, y: platformTopY - 7, z: 96});
+    place(buildingShaker, {y: platformTopY});
+
+    /* -------- HUD Updates -------- */
+    hudGround.querySelector('.v').textContent = Math.round(Math.abs(logicalShake))+' mm';
+    hudLift.querySelector('.v').textContent = liftMeters + ' m';
+    hudSensor.querySelector('.v').textContent = activeSensorName;
+    
+    var computedPressure = isFlood ? Math.round(32 + (lift/LIFT_MAX * 178)) : 32;
+    hudPump.querySelector('.v').textContent = computedPressure + ' Bar';
+
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>
